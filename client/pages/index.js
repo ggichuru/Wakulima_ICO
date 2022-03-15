@@ -45,4 +45,197 @@ export default function Home() {
 
     return provider
   }
+
+
+  /**
+   * @function connectWallet
+   * @desc Connects the metamask wallet
+   */
+  const connectWallet = async () => {
+    try {
+      await getProviderOrSigner();
+      setWalletConnected(true)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+
+  /** Check balance of tokens that can be claimed by the user */
+  const getTokensToBeClaimed = async () => {
+    try {
+      const provider = await getProviderOrSigner()
+
+      //create an NFT contract instance
+      const nftContract = new Contract(
+        NFT_CONTRACT_ADDR,
+        NFT_CONTRACT_ABI,
+        provider
+      )
+
+      // Create an instance of token instance
+      const tokenContract = new Contract(
+        TOKEN_CONTRACT_ADDR,
+        TOKEN_CONTRACT_ABI,
+        provider
+      )
+
+      const signer = await getProviderOrSigner(true)
+
+      const wallet_addr = await signer.getAddress()
+
+      const balance = await nftContract.balanceOf(wallet_addr);
+
+      if (balance === zero) {
+        setTokensToBeClaimed(zero)
+      } else {
+        let amount = 0;
+
+        // For all the NFT's, check if the tokens have already been claimed, 
+        // Only increase the amount if the tokens havae not been claimed for an NFT
+        for (let i = 0; i < balance; i++) {
+          const tokenId = await nftContract.tokenOfOwnerByIndex(address, 1)
+          const claimed = await nftContract.tokenIdsClaimed(tokenId)
+          if (!claimed) {
+            amount++;
+          }
+        }
+
+        setTokensToBeClaimed(BigNumber.from(amount))
+      }
+    } catch (error) {
+      console.log('getTokensToBeClaimed ERr: ', error)
+      setTokensToBeClaimed(zero)
+    }
+  }
+
+
+  /** Check the balance of tokens held by an address */
+  const getBalanceOfWakulimaToken = async () => {
+    try {
+      const provider = await getProviderOrSigner()
+
+      const tokenContract = new Contract(
+        TOKEN_CONTRACT_ADDR,
+        TOKEN_CONTRACT_ABI,
+        provider
+      )
+
+      const signer = await getProviderOrSigner(true)
+
+      const wallet_addr = await signer.getAddress()
+
+      const balance = await tokenContract.balanceOf(wallet_addr);
+
+      setBalanceOfWakulimaToken(balance)
+
+    } catch (error) {
+      console.log('getBalanceOfWakulimaToken ERr: ', error)
+      setBalanceOfWakulimaToken(zero)
+    }
+  }
+
+
+  /** Retrieves how many tokens have been minted till now out of the total supply */
+  const getTotalTokensMinted = async () => {
+    try {
+      const provider = await getProviderOrSigner()
+
+      const tokenContract = new Contract(
+        TOKEN_CONTRACT_ADDR,
+        TOKEN_CONTRACT_ABI,
+        provider
+      )
+
+      const _tokensMinted = await tokenContract.totalSupply()
+      setTokensMinted(_tokensMinted)
+    } catch (error) {
+      console.log('getTotalTokensMinted ERr: ', error)
+    }
+  }
+
+
+  /** mints a number of tokens to a given address */
+  const mintWakulimaToken = async (amount) => {
+    try {
+      const signer = await getProviderOrSigner(true)
+
+      const tokenContract = new Contract(
+        TOKEN_CONTRACT_ADDR,
+        TOKEN_CONTRACT_ABI,
+        signer
+      )
+
+
+      const value = 0.001 * amount
+
+      // Value signifies the cost of one crypto asset which is 0.001. This si parsed to ether
+      const tx = await tokenContract.mint(amount, {
+        value: utils.parseEther(value.toString())
+      })
+
+      setLoading(true)
+      // Wait for tx to get minted
+      await tx.wait()
+      setLoading(false)
+
+      window.alert("Successfully minted Wakulima token")
+
+      await getBalanceOfWakulimaToken()
+      await getTotalTokensMinted()
+      await getTokensToBeClaimed()
+    } catch (error) {
+      console.log("mintWakulimaToken ERr: ", error)
+    }
+
+  }
+
+
+  /** Allow use to claim wakulima tokens */
+  const claimWakulimaTokens = async (amount) => {
+    try {
+      const signer = await getProviderOrSigner(true)
+
+      const tokenContract = new Contract(
+        TOKEN_CONTRACT_ADDR,
+        TOKEN_CONTRACT_ABI,
+        signer
+      )
+
+
+      const value = 0.001 * amount
+
+      // Value signifies the cost of one crypto asset which is 0.001. This si parsed to ether
+      const tx = await tokenContract.claim()
+
+      setLoading(true)
+      // Wait for tx to get minted
+      await tx.wait()
+      setLoading(false)
+
+      window.alert("Successfully claimed Wakulima token")
+
+      await getBalanceOfWakulimaToken()
+      await getTotalTokensMinted()
+      await getTokensToBeClaimed()
+    } catch (error) {
+      console.log("mintWakulimaToken ERr: ", error)
+    }
+
+  }
+
+  useEffect(() => {
+    // Check if wallet is connect
+    if (!walletConnected) {
+      web3ModalRef.current = new Web3Modal({
+        network: 'rinkeby',
+        providerOptions: {},
+        disableInjectedProvider: false
+      });
+      connectWallet();
+      getTotalTokensMinted()
+      getBalanceOfWakulimaToken()
+      getTokensToBeClaimed()
+    }
+  }, [walletConnected])
 }
